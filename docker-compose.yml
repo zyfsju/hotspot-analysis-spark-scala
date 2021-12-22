@@ -1,0 +1,67 @@
+version: "3.3"
+services:
+  spark-scala-env:
+    image: app/spark-scala-env:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+  app-spark-scala:
+    image: app/app-spark-scala:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-app
+  spark-master:
+    image: app/spark-scala-env:latest
+    container_name: spark-master
+    # hostname: spark-master
+    ports:
+    - "8080:8080"
+    - "7077:7077"
+    networks:
+    - spark-network
+    environment:
+    - "SPARK_LOCAL_IP=spark-master"
+    - "SPARK_MASTER_PORT=7077"
+    - "SPARK_MASTER_WEBUI_PORT=8080"
+    command: ["sh", "-c", "/spark/bin/spark-class org.apache.spark.deploy.master.Master --ip $${SPARK_LOCAL_IP} --port $${SPARK_MASTER_PORT} --webui-port $${SPARK_MASTER_WEBUI_PORT}"]
+  spark-worker:
+    image: app/spark-scala-env:latest
+    depends_on:
+    - spark-master
+    ports:
+    - 8080
+    networks:
+    - spark-network
+    environment:
+    - "SPARK_MASTER=spark://spark-master:7077"
+    - "SPARK_WORKER_WEBUI_PORT=8080"
+    - "SPARK_WORKER_CORES=1"
+    command: ["sh", "-c", "/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --webui-port $${SPARK_WORKER_WEBUI_PORT} $${SPARK_MASTER}"]
+  app-submit-job:
+    image: app/app-spark-scala:latest
+    ports:
+    - "4040:4040"
+    environment:
+    - "SPARK_APPLICATION_MAIN_CLASS=cse512.Entrance"
+    - "SPARK_MASTER=spark://spark-master:7077"
+    # - "APP_PACKAGES=org.apache.spark:spark-sql-kafka-0-10_2.12:3.0.0-preview2"
+    - "APP_JAR_LOC=/app/target/scala-2.11/CSE512-Hotspot-Analysis-Template-assembly-0.1.0.jar"
+    - "OUTPUT_PATH=/app/test/output"
+    - "ZONE_CSV=./src/resources/point_hotzone.csv src/resources/zone-hotzone.csv"
+    - "CELL_CSV=./src/resources/yellow_tripdata_2009-01_point.csv"
+    # hostname: localhost
+    networks:
+    - spark-network
+    volumes:
+    - ./appdata:/appdata
+    - ./test:/app/test
+    - ./target2:/app/target
+    - ./src/resources:/app/src/resources
+    - ./start.sh:/app/start.sh
+    - ./src/main:/app/src/main
+    command: ["sh", "start.sh"]
+networks:
+  spark-network:
+    driver: bridge
+    ipam:
+      driver: default

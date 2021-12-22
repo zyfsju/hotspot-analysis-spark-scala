@@ -1,0 +1,13 @@
+FROM app/spark-scala-env:latest AS base
+
+WORKDIR /app
+
+# Pre-install base libraries
+ADD build.sbt /app/
+ADD project/plugins.sbt /app/project/
+# ADD src/main /app/src/main
+# ADD start.sh /app/
+# RUN sbt update
+
+# FROM base
+# RUN sbt clean assembly
